@@ -18,6 +18,8 @@ class PackagueType {
   static POSITION = 4;
   static ROTATION = 5;
   static PLAIN = 6;
+  static DISCONNECTION = 7;
+  static CONNECTION = 8;
 }
 
 class PackagueOptions {
@@ -29,4 +31,12 @@ class PackagueOptions {
   static RPC_DONT_SEND_BACK = 2;
 }
 
-module.exports = { Packague, PackagueType, PackagueOptions };
+class Data {
+  constructor(method, parameters, targetID) {
+    this.method = method;
+    this.parameters = parameters;
+    this.targetID = targetID;
+  }
+}
+
+module.exports = { Packague, PackagueType, PackagueOptions, Data };

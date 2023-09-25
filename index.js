@@ -4,6 +4,7 @@ const {
   Packague,
   PackagueType,
   PackagueOptions,
+  Data,
 } = require("./models/Packague");
 const { Client } = require("./models/Client");
 
@@ -11,6 +12,8 @@ const { Client } = require("./models/Client");
 const clients = [];
 
 const tcpServer = net.createServer((tcpSocket) => {
+  // TODO: Correctly assing the clientID here and in the client of unity
+  // TODO: Correctly parse the data from the packague received maybe adding "" to the data
   const localEndPoint = tcpSocket.localAddress + ":" + tcpSocket.localPort;
   const localEndPointHash = hashCode(localEndPoint);
 
@@ -20,6 +23,12 @@ const tcpServer = net.createServer((tcpSocket) => {
 
   newClient.setTCPSocket(tcpSocket);
   clients.push(newClient);
+
+  /*
+  
+    Start of the TCP socket events  
+  
+  */
 
   tcpSocket.on("data", (data) => {
     // We generate a json object from the data received
@@ -31,6 +40,15 @@ const tcpServer = net.createServer((tcpSocket) => {
       message.options,
       message.data
     );
+
+    /*console.log(packagueReceived.data);
+    const datamessage = JSON.parse(packagueReceived.data);
+
+    const dataReceived = new Data(
+      datamessage.method,
+      datamessage.parameters,
+      datamessage.targetID
+    );*/
 
     console.log(packagueReceived);
     console.log("");
@@ -45,7 +63,7 @@ const tcpServer = net.createServer((tcpSocket) => {
 
       tcpSocket.write(packague.toJson());
     } else if (packagueReceived.packagueType === PackagueType.TARGET_RPC) {
-      const targetClient = getPlayerSocketById(packagueReceived.data.targetID);
+      const targetClient = getPlayerSocketById(dataReceived.targetID);
 
       if (targetClient) {
         targetClient.write(packagueReceived.toJson());
@@ -78,9 +96,20 @@ const tcpServer = net.createServer((tcpSocket) => {
       return client.tcpSocket === tcpSocket;
     });
 
+    const packague = new Packague(
+      PackagueType.DISCONNECTION,
+      0,
+      PackagueOptions.NONE,
+      clients[clientIndex].clientID
+    );
+
     if (clientIndex !== -1) {
       clients.splice(clientIndex, 1);
     }
+  });
+
+  tcpSocket.on("error", (err) => {
+    console.error(err);
   });
 });
 
@@ -92,6 +121,22 @@ function hashCode(str) {
   }
   return hash;
 }
+
+function getPlayers() {
+  const players = [];
+
+  clients.forEach((client) => {
+    players.push(client.clientID);
+  });
+
+  return players;
+}
+
+/*
+ *
+ *  Start of the UDP socket events
+ *
+ */
 
 const udpServer = dgram.createSocket("udp4");
 const udpPort = 4000;
@@ -131,7 +176,10 @@ function getPlayerSocketById(playerId) {
   let playerSocket = null;
 
   clients.forEach((client) => {
-    if (client.clientID === playerId) {
+    console.log(client.clientID);
+    console.log(playerId);
+
+    if (client.id === playerId) {
       playerSocket = client.tcpSocket;
     }
   });
