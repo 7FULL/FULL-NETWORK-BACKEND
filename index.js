@@ -14,15 +14,31 @@ const clients = [];
 const tcpServer = net.createServer((tcpSocket) => {
   // TODO: Correctly assing the clientID here and in the client of unity
   // TODO: Correctly parse the data from the packague received maybe adding "" to the data
-  const localEndPoint = tcpSocket.localAddress + ":" + tcpSocket.localPort;
-  const localEndPointHash = hashCode(localEndPoint);
+  const token = generateUniqueToken();
 
-  const newClient = new Client(localEndPointHash);
-
-  console.log(`Cliente ${localEndPointHash} conectado`);
+  const newClient = new Client(token);
 
   newClient.setTCPSocket(tcpSocket);
   clients.push(newClient);
+
+  tcpSocket.write(token);
+
+  // We send a connection packague to all the clients except the new one
+  clients.forEach((client) => {
+    if (client.id !== newClient.id) {
+      const packague = new Packague(
+        PackagueType.CONNECTION,
+        0,
+        PackagueOptions.NONE,
+        newClient.id
+      );
+
+      client.tcpSocket.write(packague.toJson());
+    }
+  });
+
+  console.log("New client connected with id: " + token);
+  console.log("");
 
   /*
   
@@ -32,26 +48,28 @@ const tcpServer = net.createServer((tcpSocket) => {
 
   tcpSocket.on("data", (data) => {
     // We generate a json object from the data received
-    const message = JSON.parse(data.toString());
 
-    const packagueReceived = new Packague(
-      message.packagueType,
-      message.clientID,
-      message.options,
-      message.data
-    );
+    let dataReceived = null;
 
-    /*console.log(packagueReceived.data);
-    const datamessage = JSON.parse(packagueReceived.data);
+    let packagueReceived = null;
 
-    const dataReceived = new Data(
-      datamessage.method,
-      datamessage.parameters,
-      datamessage.targetID
-    );*/
+    try {
+      const message = JSON.parse(data.toString());
+
+      packagueReceived = new Packague(
+        message.packagueType,
+        message.clientID,
+        message.options,
+        message.data
+      );
+
+      dataReceived = packagueReceived.data;
+    } catch (error) {
+      console.log("Error parsing the data received");
+      console.log(error);
+    }
 
     console.log(packagueReceived);
-    console.log("");
 
     if (packagueReceived.packagueType === PackagueType.HANDSHAKE) {
       const packague = new Packague(
@@ -64,14 +82,13 @@ const tcpServer = net.createServer((tcpSocket) => {
       tcpSocket.write(packague.toJson());
     } else if (packagueReceived.packagueType === PackagueType.TARGET_RPC) {
       const targetClient = getPlayerSocketById(dataReceived.targetID);
-
       if (targetClient) {
         targetClient.write(packagueReceived.toJson());
       }
     } else if (packagueReceived.packagueType === PackagueType.RPC) {
       const options = packagueReceived.options;
 
-      const sendBack = true;
+      let sendBack = true;
 
       for (let i = 0; i < options.length; i++) {
         if (options[i] == PackagueOptions.RPC_DONT_SEND_BACK) {
@@ -83,7 +100,7 @@ const tcpServer = net.createServer((tcpSocket) => {
         // If sendBack is true, we send the packague to all the clients
         // If sendBack is false, we send the packague to all the clients except the sender
 
-        if (sendBack || client.clientID !== packagueReceived.clientID) {
+        if (sendBack || client.id !== packagueReceived.id) {
           client.tcpSocket.write(packagueReceived.toJson());
         }
       });
@@ -100,7 +117,7 @@ const tcpServer = net.createServer((tcpSocket) => {
       PackagueType.DISCONNECTION,
       0,
       PackagueOptions.NONE,
-      clients[clientIndex].clientID
+      clients[clientIndex].id
     );
 
     if (clientIndex !== -1) {
@@ -113,23 +130,42 @@ const tcpServer = net.createServer((tcpSocket) => {
   });
 });
 
-function hashCode(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
+function generateUniqueToken() {
+  let token = "";
+
+  for (let i = 0; i < 8; i++) {
+    const random = Math.floor(Math.random() * 10);
+
+    if (random != 0) {
+      token += random;
+    } else {
+      i--;
+    }
   }
-  return hash;
+
+  return token;
 }
 
 function getPlayers() {
   const players = [];
 
   clients.forEach((client) => {
-    players.push(client.clientID);
+    players.push(client.id);
   });
 
   return players;
+}
+
+function getPlayerSocketById(playerId) {
+  let playerSocket = null;
+
+  clients.forEach((client) => {
+    if (client.id.toString() == playerId.toString()) {
+      playerSocket = client.tcpSocket;
+    }
+  });
+
+  return playerSocket;
 }
 
 /*
@@ -171,21 +207,6 @@ udpServer.on("message", (msg, rinfo) => {
     );
   }
 });
-
-function getPlayerSocketById(playerId) {
-  let playerSocket = null;
-
-  clients.forEach((client) => {
-    console.log(client.clientID);
-    console.log(playerId);
-
-    if (client.id === playerId) {
-      playerSocket = client.tcpSocket;
-    }
-  });
-
-  return playerSocket;
-}
 
 tcpServer.listen(3000, () => {
   console.log("Servidor TCP escuchando en el puerto 3000");

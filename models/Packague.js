@@ -37,6 +37,16 @@ class Data {
     this.parameters = parameters;
     this.targetID = targetID;
   }
+
+  toJson() {
+    return JSON.stringify(this);
+  }
+
+  static fromJson(json) {
+    const data = JSON.parse(json);
+
+    return new Data(data.method, data.parameters, data.targetID);
+  }
 }
 
 module.exports = { Packague, PackagueType, PackagueOptions, Data };
