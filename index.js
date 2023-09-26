@@ -30,7 +30,7 @@ const tcpServer = net.createServer((tcpSocket) => {
         PackagueType.CONNECTION,
         0,
         PackagueOptions.NONE,
-        newClient.id
+        new Data("", [], newClient.id)
       );
 
       client.tcpSocket.write(packague.toJson());
@@ -80,6 +80,21 @@ const tcpServer = net.createServer((tcpSocket) => {
       );
 
       tcpSocket.write(packague.toJson());
+    }
+    if (packagueReceived.packagueType === PackagueType.CHECK_PLAYERS) {
+      // If the client is not the first one, we send a connection packague to it for each client
+      if (clients.length != 1) {
+        for (let i = 0; i < clients.length - 1; i++) {
+          let packague = new Packague(
+            PackagueType.CONNECTION,
+            0,
+            PackagueOptions.NONE,
+            new Data("", [], clients[i].id)
+          );
+
+          tcpSocket.write(packague.toJson());
+        }
+      }
     } else if (packagueReceived.packagueType === PackagueType.TARGET_RPC) {
       const targetClient = getPlayerSocketById(dataReceived.targetID);
       if (targetClient) {

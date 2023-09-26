@@ -20,6 +20,7 @@ class PackagueType {
   static PLAIN = 6;
   static DISCONNECTION = 7;
   static CONNECTION = 8;
+  static CHECK_PLAYERS = 9;
 }
 
 class PackagueOptions {
