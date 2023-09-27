@@ -4,9 +4,14 @@ class Packague {
     this.clientID = clientID;
     this.options = options;
     this.data = data;
+
+    if (data instanceof Object) {
+      this.data = data.toJson();
+    }
   }
 
   toJson() {
+    //this.data = JSON.stringify(this.data);
     return JSON.stringify(this);
   }
 }
@@ -21,18 +26,19 @@ class PackagueType {
   static DISCONNECTION = 7;
   static CONNECTION = 8;
   static CHECK_PLAYERS = 9;
+  static REGISTER_NETWORK_OBJECT = 10;
+  static SYNCVAR = 11;
+  static CHECK_SYNCVARS = 12;
 }
 
 class PackagueOptions {
   // No options
   static NONE = 0;
-  // Option if you want to send back the packague to the sender in case of a target rpc
-  static TARGET_SEND_BACK = 1;
   // Option if you want to send back the packague to the sender in case of a rpc
-  static RPC_DONT_SEND_BACK = 2;
+  static DONT_SEND_BACK = 1;
 }
 
-class Data {
+class RPCData {
   constructor(method, parameters, targetID) {
     this.method = method;
     this.parameters = parameters;
@@ -46,8 +52,49 @@ class Data {
   static fromJson(json) {
     const data = JSON.parse(json);
 
-    return new Data(data.method, data.parameters, data.targetID);
+    return new RPCData(data.method, data.parameters, data.targetID);
   }
 }
 
-module.exports = { Packague, PackagueType, PackagueOptions, Data };
+class PlainData {
+  constructor(message) {
+    this.message = message;
+  }
+
+  toJson() {
+    return JSON.stringify(this);
+  }
+
+  static fromJson(json) {
+    const data = JSON.parse(json);
+
+    return new PlainData(data.data);
+  }
+}
+
+class SyncVarData {
+  constructor(oldValue, newValue, id) {
+    this.oldValue = oldValue;
+    this.newValue = newValue;
+    this.id = id;
+  }
+
+  toJson() {
+    return JSON.stringify(this);
+  }
+
+  static fromJson(json) {
+    const data = JSON.parse(json);
+
+    return new SyncVarData(data.oldValue, data.newValue, data.id);
+  }
+}
+
+module.exports = {
+  Packague,
+  PackagueType,
+  PackagueOptions,
+  RPCData,
+  PlainData,
+  SyncVarData,
+};

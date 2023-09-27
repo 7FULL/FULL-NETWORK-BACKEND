@@ -4,12 +4,25 @@ const {
   Packague,
   PackagueType,
   PackagueOptions,
-  Data,
+  RPCData,
+  PlainData,
+  SyncVarData,
 } = require("./models/Packague");
+const SyncVar = require("./syncs/SyncVar");
+
 const { Client } = require("./models/Client");
 
-// Lista de clientes conectados
+// Connected clients
 const clients = [];
+
+// Network objects
+const networkObjects = [];
+
+const syncVars = [];
+
+const syncList = [];
+
+const syncDictionary = [];
 
 const tcpServer = net.createServer((tcpSocket) => {
   // TODO: Correctly assing the clientID here and in the client of unity
@@ -30,7 +43,7 @@ const tcpServer = net.createServer((tcpSocket) => {
         PackagueType.CONNECTION,
         0,
         PackagueOptions.NONE,
-        new Data("", [], newClient.id)
+        new PlainData(newClient.id)
       );
 
       client.tcpSocket.write(packague.toJson());
@@ -63,7 +76,7 @@ const tcpServer = net.createServer((tcpSocket) => {
         message.data
       );
 
-      dataReceived = packagueReceived.data;
+      dataReceived = JSON.parse(packagueReceived.data);
     } catch (error) {
       console.log("Error parsing the data received");
       console.log(error);
@@ -76,12 +89,94 @@ const tcpServer = net.createServer((tcpSocket) => {
         PackagueType.HANDSHAKE,
         0,
         PackagueOptions.NONE,
-        "PONG"
+        new PlainData("PONG")
       );
 
       tcpSocket.write(packague.toJson());
-    }
-    if (packagueReceived.packagueType === PackagueType.CHECK_PLAYERS) {
+    } else if (
+      packagueReceived.packagueType === PackagueType.REGISTER_NETWORK_OBJECT
+    ) {
+      const options = packagueReceived.options;
+
+      let sendBack = true;
+
+      for (let i = 0; i < options.length; i++) {
+        if (options[i] == PackagueOptions.DONT_SEND_BACK) {
+          sendBack = false;
+        }
+      }
+
+      const networkObject = packagueReceived.data;
+
+      const token = generateUniqueToken();
+
+      networkObject.id = token;
+
+      networkObjects.push(networkObject);
+
+      clients.forEach((client) => {
+        if (sendBack || client.id !== packagueReceived.id) {
+          client.tcpSocket.write(token);
+        }
+      });
+    } else if (packagueReceived.packagueType === PackagueType.SYNCVAR) {
+      const options = packagueReceived.options;
+
+      let sendBack = true;
+
+      for (let i = 0; i < options.length; i++) {
+        if (options[i] == PackagueOptions.DONT_SEND_BACK) {
+          sendBack = false;
+        }
+      }
+
+      const syncVar = SyncVar.fromJson(dataReceived);
+
+      // We check if the syncVar is already in the list
+      let syncVarIndex = -1;
+
+      for (let i = 0; i < syncVars.length; i++) {
+        if (syncVars[i].id === syncVar.id) {
+          syncVarIndex = i;
+        }
+      }
+
+      if (syncVarIndex === -1) {
+        syncVars.push(syncVar);
+
+        const packague = new Packague(
+          PackagueType.SYNCVAR,
+          0,
+          PackagueOptions.NONE,
+          new SyncVarData(syncVar.value, syncVar.value, syncVar.id)
+        );
+
+        clients.forEach((client) => {
+          if (sendBack || client.id !== packagueReceived.id) {
+            client.tcpSocket.write(packague.toJson());
+          }
+        });
+      } else {
+        const packague = new Packague(
+          PackagueType.SYNCVAR,
+          0,
+          PackagueOptions.NONE,
+          new SyncVarData(
+            syncVars[syncVarIndex].value,
+            syncVar.value,
+            syncVar.id
+          )
+        );
+
+        syncVars[syncVarIndex] = syncVar;
+
+        clients.forEach((client) => {
+          if (sendBack || client.id !== packagueReceived.id) {
+            client.tcpSocket.write(packague.toJson());
+          }
+        });
+      }
+    } else if (packagueReceived.packagueType === PackagueType.CHECK_PLAYERS) {
       // If the client is not the first one, we send a connection packague to it for each client
       if (clients.length != 1) {
         for (let i = 0; i < clients.length - 1; i++) {
@@ -89,7 +184,7 @@ const tcpServer = net.createServer((tcpSocket) => {
             PackagueType.CONNECTION,
             0,
             PackagueOptions.NONE,
-            new Data("", [], clients[i].id)
+            new PlainData(clients[i].id)
           );
 
           tcpSocket.write(packague.toJson());
@@ -106,14 +201,15 @@ const tcpServer = net.createServer((tcpSocket) => {
       let sendBack = true;
 
       for (let i = 0; i < options.length; i++) {
-        if (options[i] == PackagueOptions.RPC_DONT_SEND_BACK) {
+        if (options[i] == PackagueOptions.DONT_SEND_BACK) {
           sendBack = false;
         }
       }
 
       clients.forEach((client) => {
         // If sendBack is true, we send the packague to all the clients
-        // If sendBack is false, we send the packague to all the clients except the sender
+        // If sendBack is false, we send the packague to all the clients
+        // except the sender
 
         if (sendBack || client.id !== packagueReceived.id) {
           client.tcpSocket.write(packagueReceived.toJson());
@@ -157,6 +253,19 @@ function generateUniqueToken() {
       i--;
     }
   }
+
+  token = checkToken(token);
+
+  return token;
+}
+
+function checkToken(token) {
+  // Check if the token is already in use
+  clients.forEach((client) => {
+    if (client.id === token) {
+      token = generateUniqueToken();
+    }
+  });
 
   return token;
 }
@@ -224,6 +333,7 @@ udpServer.on("message", (msg, rinfo) => {
 });
 
 tcpServer.listen(3000, () => {
+  console.log("");
   console.log("Servidor TCP escuchando en el puerto 3000");
 });
 
