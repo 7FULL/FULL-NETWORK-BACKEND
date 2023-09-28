@@ -1,7 +1,9 @@
 class SyncVar {
-  constructor(value, id) {
+  constructor(type, value, id, localID) {
+    this.type = type;
     this.value = value;
     this.id = id;
+    this.localID = localID;
   }
   get() {
     return this.value;
@@ -20,4 +22,5 @@ class SyncVar {
     return new SyncVar(data.value, data.id);
   }
 }
+
 module.exports = { SyncVar };

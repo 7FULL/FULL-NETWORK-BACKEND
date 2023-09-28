@@ -28,7 +28,8 @@ class PackagueType {
   static CHECK_PLAYERS = 9;
   static REGISTER_NETWORK_OBJECT = 10;
   static SYNCVAR = 11;
-  static CHECK_SYNCVARS = 12;
+  static REGISTER_SYNCVARS = 12;
+  static CHECK_SYNCVARS = 13;
 }
 
 class PackagueOptions {
@@ -72,29 +73,10 @@ class PlainData {
   }
 }
 
-class SyncVarData {
-  constructor(oldValue, newValue, id) {
-    this.oldValue = oldValue;
-    this.newValue = newValue;
-    this.id = id;
-  }
-
-  toJson() {
-    return JSON.stringify(this);
-  }
-
-  static fromJson(json) {
-    const data = JSON.parse(json);
-
-    return new SyncVarData(data.oldValue, data.newValue, data.id);
-  }
-}
-
 module.exports = {
   Packague,
   PackagueType,
   PackagueOptions,
   RPCData,
   PlainData,
-  SyncVarData,
 };

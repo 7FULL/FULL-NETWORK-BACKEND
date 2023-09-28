@@ -6,9 +6,8 @@ const {
   PackagueOptions,
   RPCData,
   PlainData,
-  SyncVarData,
 } = require("./models/Packague");
-const SyncVar = require("./syncs/SyncVar");
+const { SyncVar } = require("./syncs/SyncVar");
 
 const { Client } = require("./models/Client");
 
@@ -75,7 +74,6 @@ const tcpServer = net.createServer((tcpSocket) => {
         message.options,
         message.data
       );
-
       dataReceived = JSON.parse(packagueReceived.data);
     } catch (error) {
       console.log("Error parsing the data received");
@@ -130,52 +128,40 @@ const tcpServer = net.createServer((tcpSocket) => {
         }
       }
 
-      const syncVar = SyncVar.fromJson(dataReceived);
+      const syncVar = dataReceived;
 
-      // We check if the syncVar is already in the list
-      let syncVarIndex = -1;
-
-      for (let i = 0; i < syncVars.length; i++) {
-        if (syncVars[i].id === syncVar.id) {
-          syncVarIndex = i;
+      // It means its a new syncvar
+      if (syncVar.id == -1) {
+        syncVar.id = generateUniqueToken();
+      } // We update the syncvar
+      else {
+        for (let i = 0; i < syncVars.length; i++) {
+          if (syncVars[i].id == syncVar.id) {
+            syncVars[i].value = syncVar.value;
+          }
         }
       }
 
-      if (syncVarIndex === -1) {
-        syncVars.push(syncVar);
+      clients.forEach((client) => {
+        if (sendBack || client.id !== packagueReceived.id) {
+          const packague = new Packague(
+            PackagueType.SYNCVAR,
+            0,
+            PackagueOptions.NONE,
+            new SyncVar(
+              syncVar.type,
+              syncVar.value,
+              syncVar.id,
+              syncVar.localID
+            )
+          );
 
-        const packague = new Packague(
-          PackagueType.SYNCVAR,
-          0,
-          PackagueOptions.NONE,
-          new SyncVarData(syncVar.value, syncVar.value, syncVar.id)
-        );
+          console.log(packague);
 
-        clients.forEach((client) => {
-          if (sendBack || client.id !== packagueReceived.id) {
-            client.tcpSocket.write(packague.toJson());
-          }
-        });
-      } else {
-        const packague = new Packague(
-          PackagueType.SYNCVAR,
-          0,
-          PackagueOptions.NONE,
-          new SyncVarData(
-            syncVars[syncVarIndex].value,
-            syncVar.value,
-            syncVar.id
-          )
-        );
-
-        syncVars[syncVarIndex] = syncVar;
-
-        clients.forEach((client) => {
-          if (sendBack || client.id !== packagueReceived.id) {
-            client.tcpSocket.write(packague.toJson());
-          }
-        });
-      }
+          client.tcpSocket.write(packague.toJson());
+        }
+      });
+    } else if (packagueReceived.packagueType === PackagueType.CHECK_SYNCVARS) {
     } else if (packagueReceived.packagueType === PackagueType.CHECK_PLAYERS) {
       // If the client is not the first one, we send a connection packague to it for each client
       if (clients.length != 1) {
