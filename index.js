@@ -307,11 +307,7 @@ udpServer.on("message", (msg, rinfo) => {
     } else {
       players.set(playerId, { posX, posY, posZ });
     }
-
-    // Puedes agregar aquí cualquier lógica adicional que necesites para tu juego
-    // Por ejemplo, propagar las actualizaciones de posición a otros jugadores.
   } else {
-    // Tipo de mensaje desconocido, puedes ignorarlo o manejarlo según tus necesidades
     console.log(
       `Mensaje UDP desconocido recibido de ${rinfo.address}:${rinfo.port}`
     );
