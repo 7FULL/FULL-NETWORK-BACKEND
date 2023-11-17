@@ -5,6 +5,7 @@ Server build for backend of my multiplayer networking solution
 ## Characteristics
 
 - Handle TCP / UDP Connections
+- Handle SyncVar updates
 - Handle conections and disconnections of players
 - Handle RPC and TargetRPC
 - Sync Player movement and position trough the network
